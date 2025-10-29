@@ -24,7 +24,6 @@ pub struct HealthCheckRequest {
 pub enum HealthStatus {
     Up,
     Down,
-    Maint,
 }
 
 impl HealthStatus {
@@ -32,7 +31,6 @@ impl HealthStatus {
         match self {
             HealthStatus::Up => "up\n".to_string(),
             HealthStatus::Down => "down\n".to_string(),
-            HealthStatus::Maint => "maint\n".to_string(),
         }
     }
 }
@@ -128,7 +126,6 @@ mod tests {
     fn test_health_status_to_string() {
         assert_eq!(HealthStatus::Up.to_protocol_string(), "up\n");
         assert_eq!(HealthStatus::Down.to_protocol_string(), "down\n");
-        assert_eq!(HealthStatus::Maint.to_protocol_string(), "maint\n");
     }
 
     #[test]

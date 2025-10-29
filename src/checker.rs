@@ -7,6 +7,7 @@ use dashmap::DashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tonic::transport::{Channel, ClientTlsConfig};
+use tonic_prost::ProstCodec;
 
 // T057: BackendChannelKey struct
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -131,7 +132,7 @@ impl GrpcHealthChecker {
 
         // Create health check request
         // Note: :authority pseudoheader is set at channel level via origin() or TLS domain_name()
-        let health_request = TonicRequest::new(HealthCheckRequest_grpc {
+        let health_request = TonicRequest::new(HealthCheckRequestGrpc {
             service: String::new(), // Empty string means overall server health
         });
 
@@ -160,23 +161,19 @@ impl GrpcHealthChecker {
 
         Ok(health_status)
     }
-
-    pub fn get_active_channel_count(&self) -> usize {
-        self.channel_cache.len()
-    }
 }
 
 // gRPC Health Check Protocol types
 // Based on: https://github.com/grpc/grpc-proto/blob/master/grpc/health/v1/health.proto
 
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct HealthCheckRequest_grpc {
+pub struct HealthCheckRequestGrpc {
     #[prost(string, tag = "1")]
     pub service: String,
 }
 
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct HealthCheckResponse_grpc {
+pub struct HealthCheckResponseGrpc {
     #[prost(enumeration = "ServingStatus", tag = "1")]
     pub status: i32,
 }
@@ -213,8 +210,8 @@ pub mod health_client {
 
         pub async fn check(
             &mut self,
-            request: tonic::Request<HealthCheckRequest_grpc>,
-        ) -> Result<tonic::Response<HealthCheckResponse_grpc>, tonic::Status> {
+            request: tonic::Request<HealthCheckRequestGrpc>,
+        ) -> Result<tonic::Response<HealthCheckResponseGrpc>, tonic::Status> {
             self.inner
                 .ready()
                 .await
@@ -225,7 +222,7 @@ pub mod health_client {
                     )
                 })?;
 
-            let codec = tonic::codec::ProstCodec::default();
+            let codec = ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static("/grpc.health.v1.Health/Check");
 
             self.inner.unary(request, path, codec).await

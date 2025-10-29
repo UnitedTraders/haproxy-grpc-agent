@@ -1,5 +1,5 @@
 # Multi-stage build for haproxy-grpc-agent
-FROM rust:1.75 as builder
+FROM rust:1.90 as builder
 
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
