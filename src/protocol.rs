@@ -27,7 +27,7 @@ pub enum HealthStatus {
 }
 
 impl HealthStatus {
-    pub fn to_protocol_string(&self) -> String {
+    pub fn to_protocol_string(self) -> String {
         match self {
             HealthStatus::Up => "up\n".to_string(),
             HealthStatus::Down => "down\n".to_string(),
@@ -46,6 +46,7 @@ impl HealthCheckResponse {
         HealthCheckResponse { status }
     }
 
+    #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {
         self.status.to_protocol_string()
     }
