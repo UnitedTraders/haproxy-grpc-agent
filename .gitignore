@@ -1,0 +1,46 @@
+# T025: Rust project .gitignore
+
+# Rust build artifacts
+/target
+debug/
+release/
+*.rs.bk
+*.rlib
+*.prof*
+
+# Cargo lock (keep for binaries, ignore for libraries)
+# Cargo.lock
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment and secrets
+.env
+.env.*
+*.key
+*.pem
+*.crt
+config.toml
+
+# Logs
+*.log
+
+# Test artifacts
+coverage/
+*.profdata
+*.profraw
+
+# Docker
+.dockerignore
+
+# Temporary files
+*.tmp
+*.bak

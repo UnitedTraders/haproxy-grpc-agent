@@ -1,0 +1,30 @@
+# T023: systemd service file
+
+[Unit]
+Description=HAProxy gRPC Health Check Agent
+After=network.target
+Documentation=https://github.com/unitedtraders/haproxy-grpc-agent
+
+[Service]
+Type=simple
+User=haproxy-agent
+Group=haproxy-agent
+ExecStart=/usr/local/bin/haproxy-grpc-agent
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/haproxy-grpc-agent
+
+# Resource limits
+LimitNOFILE=65536
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

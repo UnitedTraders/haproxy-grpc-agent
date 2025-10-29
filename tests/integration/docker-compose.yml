@@ -1,0 +1,52 @@
+# T049: Integration test infrastructure
+# Docker compose for HAProxy + mock gRPC backend + agent
+
+version: '3.8'
+
+services:
+  # Mock gRPC backend that implements grpc.health.v1.Health
+  grpc-backend:
+    build:
+      context: ./mock-backend
+      dockerfile: Dockerfile
+    ports:
+      - "50051:50051"
+    environment:
+      - GRPC_PORT=50051
+      - HEALTH_STATUS=SERVING
+    networks:
+      - test-network
+
+  # HAProxy instance configured to use our agent
+  haproxy:
+    image: haproxy:2.9
+    ports:
+      - "8080:8080"
+      - "5555:5555"
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    depends_on:
+      - grpc-backend
+    networks:
+      - test-network
+
+  # The agent under test
+  agent:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    ports:
+      - "5555:5555"
+      - "9090:9090"
+    environment:
+      - AGENT_SERVER_BIND_ADDRESS=0.0.0.0
+      - AGENT_SERVER_PORT=5555
+      - AGENT_METRICS_PORT=9090
+      - AGENT_LOG_LEVEL=debug
+      - AGENT_LOG_FORMAT=json
+    networks:
+      - test-network
+
+networks:
+  test-network:
+    driver: bridge
