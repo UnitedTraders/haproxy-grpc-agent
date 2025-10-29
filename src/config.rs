@@ -9,33 +9,27 @@ use std::path::PathBuf;
 // T028: LogLevel enum with serde derives
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, clap::ValueEnum)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum LogLevel {
     Trace,
     Debug,
+    #[default]
     Info,
     Warn,
     Error,
 }
 
-impl Default for LogLevel {
-    fn default() -> Self {
-        LogLevel::Info
-    }
-}
 
 // T028: LogFormat enum with serde derives
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, clap::ValueEnum)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum LogFormat {
+    #[default]
     Json,
     Pretty,
 }
 
-impl Default for LogFormat {
-    fn default() -> Self {
-        LogFormat::Json
-    }
-}
 
 // T026: AgentConfig struct with all fields from data-model.md
 #[derive(Debug, Clone, Deserialize, Serialize)]
