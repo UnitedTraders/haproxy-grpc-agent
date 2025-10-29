@@ -52,3 +52,4 @@ opt-level = "z"
 [dev-dependencies]
 # For integration tests
 bollard = "0.16"  # Docker API client
+serde_json = "1.0"  # For parsing JSON logs in tests

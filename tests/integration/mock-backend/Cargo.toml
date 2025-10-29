@@ -2,12 +2,12 @@
 [package]
 name = "mock-grpc-backend"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 tokio = { version = "1", features = ["full", "macros"] }
-tonic = { version = "0.11", features = ["transport"] }
-prost = "0.12"
+tonic = { version = "0.14.2", features = ["transport"] }
+tonic-health = "0.14.0"
 anyhow = "1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
