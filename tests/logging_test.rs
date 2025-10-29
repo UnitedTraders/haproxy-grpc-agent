@@ -24,7 +24,7 @@ fn verify_structured_log_fields(log: &Value) -> bool {
 async fn test_startup_logs_json_format() {
     // Build the agent if not already built
     let _ = Command::new("cargo")
-        .args(&["build", "--release"])
+        .args(["build", "--release"])
         .output()
         .expect("Failed to build agent");
 
@@ -54,10 +54,7 @@ async fn test_startup_logs_json_format() {
     assert!(!lines.is_empty(), "Should have log output");
 
     // Find the startup log
-    let startup_logs: Vec<Value> = lines
-        .iter()
-        .filter_map(|line| parse_json_log(line))
-        .collect();
+    let startup_logs: Vec<Value> = lines.into_iter().filter_map(parse_json_log).collect();
 
     assert!(
         !startup_logs.is_empty(),
@@ -131,16 +128,13 @@ async fn test_health_check_logged_with_trace_id() {
 
     let mut all_output = String::from_utf8_lossy(&output.stdout).to_string();
     all_output.push_str(&String::from_utf8_lossy(&output.stderr));
-    let logs: Vec<Value> = all_output
-        .lines()
-        .filter_map(|line| parse_json_log(line))
-        .collect();
+    let logs: Vec<Value> = all_output.lines().filter_map(parse_json_log).collect();
 
     // Check that logs have structured format (baseline requirement)
     assert!(!logs.is_empty(), "Should have log output");
 
     // Verify structured logging is working
-    let all_structured = logs.iter().all(|log| verify_structured_log_fields(log));
+    let all_structured = logs.iter().all(verify_structured_log_fields);
     assert!(all_structured, "All logs should be structured JSON");
 
     // The test verifies that:
@@ -192,10 +186,7 @@ async fn test_error_logged_with_context() {
 
     let mut all_output = String::from_utf8_lossy(&output.stdout).to_string();
     all_output.push_str(&String::from_utf8_lossy(&output.stderr));
-    let logs: Vec<Value> = all_output
-        .lines()
-        .filter_map(|line| parse_json_log(line))
-        .collect();
+    let logs: Vec<Value> = all_output.lines().filter_map(parse_json_log).collect();
 
     // Find error logs
     let error_logs: Vec<&Value> = logs
@@ -276,10 +267,7 @@ async fn test_debug_log_level() {
 
     let mut all_output = String::from_utf8_lossy(&output.stdout).to_string();
     all_output.push_str(&String::from_utf8_lossy(&output.stderr));
-    let logs: Vec<Value> = all_output
-        .lines()
-        .filter_map(|line| parse_json_log(line))
-        .collect();
+    let logs: Vec<Value> = all_output.lines().filter_map(parse_json_log).collect();
 
     // Count log levels
     let _debug_logs: Vec<&Value> = logs
@@ -298,7 +286,7 @@ async fn test_debug_log_level() {
     assert!(!logs.is_empty(), "Should have log output at DEBUG level");
 
     // Verify logs are structured JSON
-    let all_json = logs.iter().all(|log| verify_structured_log_fields(log));
+    let all_json = logs.iter().all(verify_structured_log_fields);
     assert!(
         all_json,
         "All logs should be structured JSON even at DEBUG level"
@@ -342,10 +330,7 @@ async fn test_error_log_level_only() {
 
     let mut all_output = String::from_utf8_lossy(&output.stdout).to_string();
     all_output.push_str(&String::from_utf8_lossy(&output.stderr));
-    let logs: Vec<Value> = all_output
-        .lines()
-        .filter_map(|line| parse_json_log(line))
-        .collect();
+    let logs: Vec<Value> = all_output.lines().filter_map(parse_json_log).collect();
 
     // Count INFO logs - should be minimal or none
     let info_logs: Vec<&Value> = logs
