@@ -28,7 +28,10 @@ impl AgentServer {
     // T067-T069: TCP server with connection accept loop
     pub async fn run(&self) -> Result<()> {
         // T068: Bind to configured address and port
-        let bind_addr = format!("{}:{}", self.config.server_bind_address, self.config.server_port);
+        let bind_addr = format!(
+            "{}:{}",
+            self.config.server_bind_address, self.config.server_port
+        );
 
         let listener = TcpListener::bind(&bind_addr)
             .await

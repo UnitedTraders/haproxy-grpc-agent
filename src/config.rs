@@ -219,9 +219,7 @@ impl AgentConfig {
     // T030: Load configuration from environment variables
     fn load_from_env(mut config: AgentConfig) -> Result<Self> {
         if let Ok(port) = std::env::var("HAPROXY_AGENT_SERVER_PORT") {
-            config.server_port = port
-                .parse()
-                .context("Invalid HAPROXY_AGENT_SERVER_PORT")?;
+            config.server_port = port.parse().context("Invalid HAPROXY_AGENT_SERVER_PORT")?;
         }
 
         if let Ok(bind) = std::env::var("HAPROXY_AGENT_SERVER_BIND") {
@@ -229,9 +227,7 @@ impl AgentConfig {
         }
 
         if let Ok(port) = std::env::var("HAPROXY_AGENT_METRICS_PORT") {
-            config.metrics_port = port
-                .parse()
-                .context("Invalid HAPROXY_AGENT_METRICS_PORT")?;
+            config.metrics_port = port.parse().context("Invalid HAPROXY_AGENT_METRICS_PORT")?;
         }
 
         if let Ok(bind) = std::env::var("HAPROXY_AGENT_METRICS_BIND") {

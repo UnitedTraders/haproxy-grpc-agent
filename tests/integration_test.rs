@@ -8,7 +8,10 @@ use tokio::net::TcpStream;
 use tokio::time::sleep;
 
 // Helper function to connect to agent and send request
-async fn send_agent_request(addr: SocketAddr, request: &str) -> Result<String, Box<dyn std::error::Error>> {
+async fn send_agent_request(
+    addr: SocketAddr,
+    request: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
     let mut stream = TcpStream::connect(addr).await?;
 
     // Send request
@@ -46,7 +49,8 @@ async fn test_health_check_healthy_backend() {
     sleep(Duration::from_secs(2)).await;
 
     let request = "localhost 50051 no-ssl localhost\n";
-    let response = send_agent_request(agent_addr, request).await
+    let response = send_agent_request(agent_addr, request)
+        .await
         .expect("Should receive response");
 
     assert_eq!(response.trim(), "up", "Healthy backend should return 'up'");
@@ -61,11 +65,16 @@ async fn test_health_check_with_ssl() {
     sleep(Duration::from_secs(2)).await;
 
     let request = "localhost 50052 ssl localhost\n";
-    let response = send_agent_request(agent_addr, request).await
+    let response = send_agent_request(agent_addr, request)
+        .await
         .expect("Should receive response");
 
     // Should fail to connect to non-existent SSL backend
-    assert_eq!(response.trim(), "down", "Non-existent backend should return 'down'");
+    assert_eq!(
+        response.trim(),
+        "down",
+        "Non-existent backend should return 'down'"
+    );
 }
 
 // T055: Test protocol violation handling
@@ -78,10 +87,15 @@ async fn test_protocol_violation() {
 
     // Send invalid request (wrong number of fields)
     let request = "invalid request\n";
-    let response = send_agent_request(agent_addr, request).await
+    let response = send_agent_request(agent_addr, request)
+        .await
         .expect("Should receive response");
 
-    assert_eq!(response.trim(), "down", "Protocol violation should return 'down'");
+    assert_eq!(
+        response.trim(),
+        "down",
+        "Protocol violation should return 'down'"
+    );
 }
 
 // T056: Test persistent connection (multiple requests)
@@ -92,7 +106,8 @@ async fn test_persistent_connection() {
 
     sleep(Duration::from_secs(2)).await;
 
-    let stream = TcpStream::connect(agent_addr).await
+    let stream = TcpStream::connect(agent_addr)
+        .await
         .expect("Should connect to agent");
 
     let mut reader = BufReader::new(stream);
@@ -100,12 +115,17 @@ async fn test_persistent_connection() {
     // Send multiple requests on same connection
     for _ in 0..3 {
         let request = "localhost 50051 no-ssl localhost\n";
-        reader.get_mut().write_all(request.as_bytes()).await
+        reader
+            .get_mut()
+            .write_all(request.as_bytes())
+            .await
             .expect("Should write request");
         reader.get_mut().flush().await.expect("Should flush");
 
         let mut response = String::new();
-        reader.read_line(&mut response).await
+        reader
+            .read_line(&mut response)
+            .await
             .expect("Should read response");
 
         assert_eq!(response.trim(), "up", "Should receive 'up' response");
@@ -123,8 +143,13 @@ async fn test_unreachable_backend() {
 
     // Try to check a backend that doesn't exist
     let request = "nonexistent.example.com 9999 no-ssl nonexistent.example.com\n";
-    let response = send_agent_request(agent_addr, request).await
+    let response = send_agent_request(agent_addr, request)
+        .await
         .expect("Should receive response");
 
-    assert_eq!(response.trim(), "down", "Unreachable backend should return 'down'");
+    assert_eq!(
+        response.trim(),
+        "down",
+        "Unreachable backend should return 'down'"
+    );
 }

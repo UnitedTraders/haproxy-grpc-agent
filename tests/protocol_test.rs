@@ -1,7 +1,7 @@
 // Unit tests for protocol parsing
 // T042-T045: Protocol parser tests
 
-use haproxy_grpc_agent::protocol::{parse_request, SslFlag, ParseError};
+use haproxy_grpc_agent::protocol::{ParseError, SslFlag, parse_request};
 
 // T042: Unit test for parse_request with valid input
 #[test]
@@ -88,7 +88,7 @@ fn test_parse_request_invalid_port_not_number() {
 
     assert!(result.is_err());
     match result.unwrap_err() {
-        ParseError::InvalidPort(_) => {},
+        ParseError::InvalidPort(_) => {}
         _ => panic!("Expected InvalidPort error"),
     }
 }
@@ -100,7 +100,7 @@ fn test_parse_request_invalid_port_zero() {
 
     assert!(result.is_err());
     match result.unwrap_err() {
-        ParseError::InvalidPort(_) => {},
+        ParseError::InvalidPort(_) => {}
         _ => panic!("Expected InvalidPort error"),
     }
 }
@@ -112,7 +112,7 @@ fn test_parse_request_invalid_port_too_large() {
 
     assert!(result.is_err());
     match result.unwrap_err() {
-        ParseError::InvalidPort(_) => {},
+        ParseError::InvalidPort(_) => {}
         _ => panic!("Expected InvalidPort error"),
     }
 }
@@ -137,7 +137,7 @@ fn test_parse_request_invalid_ssl_flag_typo() {
 
     assert!(result.is_err());
     match result.unwrap_err() {
-        ParseError::InvalidSslFlag(_) => {},
+        ParseError::InvalidSslFlag(_) => {}
         _ => panic!("Expected InvalidSslFlag error"),
     }
 }

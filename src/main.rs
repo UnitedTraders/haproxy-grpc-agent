@@ -1,24 +1,22 @@
 // T012: Basic tokio main function skeleton
 // T077: Wire together config, logger, and server
 
-mod config;
-mod server;
-mod protocol;
 mod checker;
-mod metrics;
+mod config;
 mod logger;
+mod metrics;
+mod protocol;
+mod server;
 
 use anyhow::{Context, Result};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     // T077: Load configuration
-    let config = config::AgentConfig::load()
-        .context("Failed to load configuration")?;
+    let config = config::AgentConfig::load().context("Failed to load configuration")?;
 
     // T077: Initialize logger based on config
-    logger::init(&config)
-        .context("Failed to initialize logger")?;
+    logger::init(&config).context("Failed to initialize logger")?;
 
     // T077: Log startup configuration
     tracing::info!(
@@ -35,8 +33,7 @@ async fn main() -> Result<()> {
 
     tracing::info!("Initialization complete, starting server");
 
-    server.run().await
-        .context("Server error")?;
+    server.run().await.context("Server error")?;
 
     Ok(())
 }

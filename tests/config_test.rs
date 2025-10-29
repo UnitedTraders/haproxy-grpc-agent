@@ -1,7 +1,7 @@
 // Unit tests for configuration
 // T046-T048: Config validation tests
 
-use haproxy_grpc_agent::config::{AgentConfig, LogLevel, LogFormat};
+use haproxy_grpc_agent::config::{AgentConfig, LogFormat, LogLevel};
 
 // T046: Unit test for config validation with valid config
 #[test]

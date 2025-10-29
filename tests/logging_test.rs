@@ -15,9 +15,7 @@ fn parse_json_log(line: &str) -> Option<Value> {
 
 /// Helper to check if a JSON log has all required structured fields
 fn verify_structured_log_fields(log: &Value) -> bool {
-    log.get("timestamp").is_some()
-        && log.get("level").is_some()
-        && log.get("fields").is_some()
+    log.get("timestamp").is_some() && log.get("level").is_some() && log.get("fields").is_some()
 }
 
 // T091: Integration test - Startup logs configuration at INFO level in JSON format
@@ -61,7 +59,10 @@ async fn test_startup_logs_json_format() {
         .filter_map(|line| parse_json_log(line))
         .collect();
 
-    assert!(!startup_logs.is_empty(), "Should have at least one JSON log");
+    assert!(
+        !startup_logs.is_empty(),
+        "Should have at least one JSON log"
+    );
 
     // Verify at least one log has structured fields
     let has_structured = startup_logs.iter().any(|log| {
@@ -69,7 +70,10 @@ async fn test_startup_logs_json_format() {
             && log.get("fields").and_then(|f| f.get("message")).is_some()
     });
 
-    assert!(has_structured, "Should have structured JSON logs with timestamp, level, and fields");
+    assert!(
+        has_structured,
+        "Should have structured JSON logs with timestamp, level, and fields"
+    );
 
     // Check for startup configuration log
     let has_startup_config = startup_logs.iter().any(|log| {
@@ -80,7 +84,10 @@ async fn test_startup_logs_json_format() {
             .unwrap_or(false)
     });
 
-    assert!(has_startup_config, "Should log startup configuration at INFO level");
+    assert!(
+        has_startup_config,
+        "Should log startup configuration at INFO level"
+    );
 }
 
 // T092: Integration test - Health check request logged with trace_id
@@ -92,7 +99,7 @@ async fn test_health_check_logged_with_trace_id() {
     // Start agent with JSON logging and DEBUG level to see connection handling logs
     let mut child = Command::new("./target/release/haproxy-grpc-agent")
         .env("AGENT_LOG_FORMAT", "json")
-        .env("AGENT_LOG_LEVEL", "debug")  // Use debug to see more logs
+        .env("AGENT_LOG_LEVEL", "debug") // Use debug to see more logs
         .env("AGENT_SERVER_PORT", "25555") // Use different port
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -140,7 +147,10 @@ async fn test_health_check_logged_with_trace_id() {
     // 1. JSON structured logging works
     // 2. Logs are properly formatted
     // 3. Connection handling would be logged (full trace_id test requires backend)
-    assert!(!logs.is_empty(), "Should have structured logs indicating agent is working");
+    assert!(
+        !logs.is_empty(),
+        "Should have structured logs indicating agent is working"
+    );
 }
 
 // T093: Integration test - Error logged with actionable context
@@ -213,7 +223,10 @@ async fn test_error_logged_with_context() {
             .collect();
 
         // At minimum, should have some logs about the failure
-        assert!(!logs.is_empty(), "Should have logs for unreachable backend request");
+        assert!(
+            !logs.is_empty(),
+            "Should have logs for unreachable backend request"
+        );
 
         // Check if we got a response (which means agent handled the error gracefully)
         // Even if not logged as ERROR, the important thing is error handling works
@@ -222,13 +235,10 @@ async fn test_error_logged_with_context() {
 
     // If we have ERROR logs, verify they have context (backend address, error message)
     let has_context = error_logs.iter().any(|log| {
-        let has_backend = log.get("fields")
-            .and_then(|f| f.get("backend"))
-            .is_some();
-        let has_error = log.get("fields")
-            .and_then(|f| f.get("error"))
-            .is_some();
-        let has_message = log.get("fields")
+        let has_backend = log.get("fields").and_then(|f| f.get("backend")).is_some();
+        let has_error = log.get("fields").and_then(|f| f.get("error")).is_some();
+        let has_message = log
+            .get("fields")
             .and_then(|f| f.get("message"))
             .and_then(|m| m.as_str())
             .map(|s| s.contains("failed") || s.contains("error") || s.contains("Health check"))
@@ -237,7 +247,10 @@ async fn test_error_logged_with_context() {
         has_backend || has_error || has_message
     });
 
-    assert!(has_context, "Error logs should include actionable context (backend, error message)");
+    assert!(
+        has_context,
+        "Error logs should include actionable context (backend, error message)"
+    );
 }
 
 // T094: Integration test - DEBUG log level shows detailed traces
@@ -286,7 +299,10 @@ async fn test_debug_log_level() {
 
     // Verify logs are structured JSON
     let all_json = logs.iter().all(|log| verify_structured_log_fields(log));
-    assert!(all_json, "All logs should be structured JSON even at DEBUG level");
+    assert!(
+        all_json,
+        "All logs should be structured JSON even at DEBUG level"
+    );
 }
 
 // T095: Integration test - ERROR log level shows only errors
@@ -355,5 +371,8 @@ async fn test_error_log_level_only() {
             .unwrap_or(false)
     });
 
-    assert!(!has_health_check_logs, "At ERROR level, INFO health check logs should be suppressed");
+    assert!(
+        !has_health_check_logs,
+        "At ERROR level, INFO health check logs should be suppressed"
+    );
 }

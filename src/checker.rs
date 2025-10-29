@@ -54,8 +54,13 @@ impl GrpcHealthChecker {
         }
 
         // T061: Create new channel with connect timeout
-        let endpoint = format!("http{}://{}:{}",
-            if matches!(key.ssl_flag, SslFlag::Ssl) { "s" } else { "" },
+        let endpoint = format!(
+            "http{}://{}:{}",
+            if matches!(key.ssl_flag, SslFlag::Ssl) {
+                "s"
+            } else {
+                ""
+            },
             key.server,
             key.port
         );
@@ -68,8 +73,7 @@ impl GrpcHealthChecker {
 
         // T060: Configure TLS if needed
         if matches!(key.ssl_flag, SslFlag::Ssl) {
-            let tls_config = ClientTlsConfig::new()
-                .domain_name(proxy_host);
+            let tls_config = ClientTlsConfig::new().domain_name(proxy_host);
             channel_builder = channel_builder
                 .tls_config(tls_config)
                 .map_err(|e| anyhow::anyhow!("TLS configuration failed: {}", e))?;
@@ -77,9 +81,11 @@ impl GrpcHealthChecker {
             // For non-TLS connections, set the :authority pseudoheader using origin()
             // This is needed for Istio and other service meshes that route based on Host/authority
             let origin_uri = format!("http://{}", proxy_host);
-            channel_builder = channel_builder
-                .origin(origin_uri.parse()
-                    .map_err(|e| anyhow::anyhow!("Invalid origin URI {}: {}", origin_uri, e))?);
+            channel_builder = channel_builder.origin(
+                origin_uri
+                    .parse()
+                    .map_err(|e| anyhow::anyhow!("Invalid origin URI {}: {}", origin_uri, e))?,
+            );
         }
 
         // Connect to backend
@@ -95,10 +101,7 @@ impl GrpcHealthChecker {
     }
 
     // T063: check_backend function
-    pub async fn check_backend(
-        &self,
-        request: &HealthCheckRequest,
-    ) -> HealthCheckResponse {
+    pub async fn check_backend(&self, request: &HealthCheckRequest) -> HealthCheckResponse {
         // T066: Error handling - all errors map to Down status
         match self.check_backend_internal(request).await {
             Ok(status) => HealthCheckResponse::new(status),
@@ -137,26 +140,23 @@ impl GrpcHealthChecker {
         });
 
         // Create client with timeout
-        let mut client = health_client::HealthClient::new(channel)
-            .max_decoding_message_size(usize::MAX);
+        let mut client =
+            health_client::HealthClient::new(channel).max_decoding_message_size(usize::MAX);
 
         // T064: Call with timeout
-        let response = tokio::time::timeout(
-            rpc_timeout,
-            client.check(health_request),
-        )
-        .await
-        .map_err(|_| anyhow::anyhow!("Health check RPC timeout after {:?}", rpc_timeout))?
-        .map_err(|e| anyhow::anyhow!("Health check RPC failed: {}", e))?;
+        let response = tokio::time::timeout(rpc_timeout, client.check(health_request))
+            .await
+            .map_err(|_| anyhow::anyhow!("Health check RPC timeout after {:?}", rpc_timeout))?
+            .map_err(|e| anyhow::anyhow!("Health check RPC failed: {}", e))?;
 
         // T065: Map ServingStatus to HealthStatus
         let serving_status = response.into_inner().status;
         let health_status = match serving_status {
-            0 => HealthStatus::Down,  // UNKNOWN
-            1 => HealthStatus::Up,    // SERVING
-            2 => HealthStatus::Down,  // NOT_SERVING
-            3 => HealthStatus::Down,  // SERVICE_UNKNOWN
-            _ => HealthStatus::Down,  // Unknown status code
+            0 => HealthStatus::Down, // UNKNOWN
+            1 => HealthStatus::Up,   // SERVING
+            2 => HealthStatus::Down, // NOT_SERVING
+            3 => HealthStatus::Down, // SERVICE_UNKNOWN
+            _ => HealthStatus::Down, // Unknown status code
         };
 
         Ok(health_status)
@@ -212,15 +212,12 @@ pub mod health_client {
             &mut self,
             request: tonic::Request<HealthCheckRequestGrpc>,
         ) -> Result<tonic::Response<HealthCheckResponseGrpc>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::new(
-                        tonic::Code::Unknown,
-                        format!("Service was not ready: {}", e),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::new(
+                    tonic::Code::Unknown,
+                    format!("Service was not ready: {}", e),
+                )
+            })?;
 
             let codec = ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static("/grpc.health.v1.Health/Check");

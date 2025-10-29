@@ -16,8 +16,8 @@ pub fn init(config: &AgentConfig) -> Result<()> {
         LogLevel::Error => "error",
     };
 
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new(log_level));
+    let env_filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(log_level));
 
     match config.log_format {
         LogFormat::Json => {
@@ -29,9 +29,7 @@ pub fn init(config: &AgentConfig) -> Result<()> {
                 .init();
         }
         LogFormat::Pretty => {
-            tracing_subscriber::fmt()
-                .with_env_filter(env_filter)
-                .init();
+            tracing_subscriber::fmt().with_env_filter(env_filter).init();
         }
     }
 
