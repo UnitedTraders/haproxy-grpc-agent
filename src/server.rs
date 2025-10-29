@@ -3,9 +3,11 @@
 
 use crate::checker::GrpcHealthChecker;
 use crate::config::AgentConfig;
+use crate::metrics;
 use crate::protocol;
 use anyhow::{Context, Result};
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 use uuid::Uuid;
@@ -53,6 +55,9 @@ impl AgentServer {
 
                     let health_checker = Arc::clone(&self.health_checker);
 
+                    // T126: Increment HAPROXY_CONNECTIONS_ACTIVE on connect
+                    metrics::HAPROXY_CONNECTIONS_ACTIVE.inc();
+
                     // Spawn a task to handle this connection
                     tokio::spawn(async move {
                         if let Err(e) = handle_connection(stream, health_checker).await {
@@ -67,6 +72,9 @@ impl AgentServer {
                             peer = %peer_addr,
                             "HAProxy connection closed"
                         );
+
+                        // T126: Decrement HAPROXY_CONNECTIONS_ACTIVE on disconnect
+                        metrics::HAPROXY_CONNECTIONS_ACTIVE.dec();
                     });
                 }
                 Err(e) => {
@@ -112,14 +120,30 @@ async fn handle_connection(
                     "Processing health check request"
                 );
 
+                // T124: Start timing health check
+                let start = Instant::now();
+
                 // T075: Integrate checker::check_backend
                 let response = health_checker.check_backend(&request).await;
+
+                // T124: Observe check duration
+                let duration = start.elapsed();
+                metrics::CHECK_DURATION_SECONDS.observe(duration.as_secs_f64());
 
                 tracing::info!(
                     backend = %format!("{}:{}", request.backend_server, request.backend_port),
                     status = ?response.status,
                     "Health check completed"
                 );
+
+                // T123: Increment CHECK_REQUESTS_TOTAL with result label
+                let result_label = match response.status {
+                    crate::protocol::HealthStatus::Up => "up",
+                    crate::protocol::HealthStatus::Down => "down",
+                };
+                metrics::CHECK_REQUESTS_TOTAL
+                    .with_label_values(&[result_label])
+                    .inc();
 
                 // T076: Write response to TCP stream
                 let response_str = response.to_string();
@@ -143,6 +167,11 @@ async fn handle_connection(
                     input = %line.trim(),
                     "Protocol violation"
                 );
+
+                // Track protocol error
+                metrics::CHECK_ERRORS_TOTAL
+                    .with_label_values(&["protocol_error"])
+                    .inc();
 
                 // Return down for protocol violations
                 let response = "down\n";

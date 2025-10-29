@@ -2,6 +2,7 @@
 // T057-T066: Complete gRPC health checking implementation
 
 use crate::config::AgentConfig;
+use crate::metrics;
 use crate::protocol::{HealthCheckRequest, HealthCheckResponse, HealthStatus, SslFlag};
 use dashmap::DashMap;
 use std::sync::Arc;
@@ -97,6 +98,9 @@ impl GrpcHealthChecker {
         // Cache the channel
         self.channel_cache.insert(key.clone(), channel.clone());
 
+        // T127: Update GRPC_CHANNELS_ACTIVE gauge
+        metrics::GRPC_CHANNELS_ACTIVE.set(self.channel_cache.len() as f64);
+
         Ok(channel)
     }
 
@@ -106,9 +110,28 @@ impl GrpcHealthChecker {
         match self.check_backend_internal(request).await {
             Ok(status) => HealthCheckResponse::new(status),
             Err(e) => {
+                // T125: Increment CHECK_ERRORS_TOTAL with error_type label
+                let error_str = e.to_string();
+                let error_type = if error_str.contains("timeout") {
+                    "timeout"
+                } else if error_str.contains("Connection failed")
+                    || error_str.contains("unreachable")
+                {
+                    "unreachable"
+                } else if error_str.contains("RPC failed") {
+                    "rpc_error"
+                } else {
+                    "unknown"
+                };
+
+                metrics::CHECK_ERRORS_TOTAL
+                    .with_label_values(&[error_type])
+                    .inc();
+
                 tracing::error!(
                     backend = %format!("{}:{}", request.backend_server, request.backend_port),
                     error = %e,
+                    error_type = %error_type,
                     "Health check failed"
                 );
                 HealthCheckResponse::new(HealthStatus::Down)
