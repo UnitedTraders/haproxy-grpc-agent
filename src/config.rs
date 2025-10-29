@@ -19,7 +19,6 @@ pub enum LogLevel {
     Error,
 }
 
-
 // T028: LogFormat enum with serde derives
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, clap::ValueEnum)]
 #[serde(rename_all = "lowercase")]
@@ -29,7 +28,6 @@ pub enum LogFormat {
     Json,
     Pretty,
 }
-
 
 // T026: AgentConfig struct with all fields from data-model.md
 #[derive(Debug, Clone, Deserialize, Serialize)]
