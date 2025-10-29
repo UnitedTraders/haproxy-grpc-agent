@@ -72,6 +72,13 @@ impl GrpcHealthChecker {
             channel_builder = channel_builder
                 .tls_config(tls_config)
                 .map_err(|e| anyhow::anyhow!("TLS configuration failed: {}", e))?;
+        } else {
+            // For non-TLS connections, set the :authority pseudoheader using origin()
+            // This is needed for Istio and other service meshes that route based on Host/authority
+            let origin_uri = format!("http://{}", proxy_host);
+            channel_builder = channel_builder
+                .origin(origin_uri.parse()
+                    .map_err(|e| anyhow::anyhow!("Invalid origin URI {}: {}", origin_uri, e))?);
         }
 
         // Connect to backend
@@ -122,19 +129,11 @@ impl GrpcHealthChecker {
         // Import the gRPC health checking protocol types
         use tonic::Request as TonicRequest;
 
-        // Create health check request and add Host header
-        use tonic::metadata::MetadataValue;
-        let mut health_request = TonicRequest::new(HealthCheckRequest_grpc {
+        // Create health check request
+        // Note: :authority pseudoheader is set at channel level via origin() or TLS domain_name()
+        let health_request = TonicRequest::new(HealthCheckRequest_grpc {
             service: String::new(), // Empty string means overall server health
         });
-        // Add 'Host' header to the gRPC request metadata
-        if !request.proxy_host_name.is_empty() {
-            if let Ok(host) = MetadataValue::try_from(request.proxy_host_name.as_str()) {
-                health_request.metadata_mut().insert("host", host);
-            } else {
-                tracing::warn!(host = %request.proxy_host_name, "Invalid Host header, skipping");
-            }
-        }
 
         // Create client with timeout
         let mut client = health_client::HealthClient::new(channel)
