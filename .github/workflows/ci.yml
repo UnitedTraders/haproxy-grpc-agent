@@ -40,16 +40,11 @@ jobs:
       - name: Run unit tests
         run: cargo test --lib --bins --verbose
 
-      - name: Run protocol tests
-        run: cargo test --test protocol_test --verbose
+      - name: Run integration tests
+        run: cargo test --test integration_test -- --test-threads=1
 
-      - name: Run config tests
-        run: cargo test --test config_test --verbose
-
-      # Integration tests require Docker setup - skip in CI for now
-      # You can enable these once you have a working mock backend setup
-      # - name: Run integration tests
-      #   run: cargo test --test integration_test --verbose
+      - name: Run resilience tests
+        run: cargo test --test resilience_test -- --test-threads=1
 
   build-and-publish:
     name: Build and Publish Docker Image

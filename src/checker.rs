@@ -55,13 +55,10 @@ impl GrpcHealthChecker {
             drop(channel); // Release the DashMap lock
 
             // Try to get the channel ready with a very short timeout
-            let ready_check = tokio::time::timeout(
-                Duration::from_millis(10),
-                async {
-                    let mut grpc = tonic::client::Grpc::new(channel_clone.clone());
-                    grpc.ready().await
-                }
-            );
+            let ready_check = tokio::time::timeout(Duration::from_millis(10), async {
+                let mut grpc = tonic::client::Grpc::new(channel_clone.clone());
+                grpc.ready().await
+            });
 
             if ready_check.await.is_ok() {
                 return Ok(channel_clone);

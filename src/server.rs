@@ -44,6 +44,12 @@ impl AgentServer {
             "Agent Text Protocol server listening"
         );
 
+        self.run_with_listener(listener).await
+    }
+
+    /// Run the agent server using a pre-bound TcpListener.
+    /// Useful for tests that need to bind to port 0 and discover the actual port.
+    pub async fn run_with_listener(&self, listener: TcpListener) -> Result<()> {
         // T069: Connection accept loop spawning tasks per connection
         loop {
             match listener.accept().await {

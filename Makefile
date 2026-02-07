@@ -17,10 +17,9 @@ test: test-unit test-integration
 test-unit:
 	cargo test --lib
 
-# Run integration tests with docker-compose
+# Run integration tests (self-contained via testcontainers, image built automatically)
 test-integration:
-	cd tests/integration && docker-compose up --build --abort-on-container-exit
-	cd tests/integration && docker-compose down
+	cargo test --test integration_test --test resilience_test -- --test-threads=1
 
 # Clean build artifacts
 clean:
@@ -37,7 +36,7 @@ run-config:
 
 # Build Docker image
 docker-build:
-	docker build -t haproxy-grpc-agent:latest -f deployments/docker/Dockerfile .
+	docker build -t haproxy-grpc-agent:latest -f Dockerfile .
 
 # Run Docker container
 docker-run:

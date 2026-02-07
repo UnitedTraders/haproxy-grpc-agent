@@ -1,110 +1,66 @@
-// T052-T056: Integration tests for HAProxy gRPC Agent
+// Integration tests for HAProxy gRPC Agent using testcontainers
 // Tests the full end-to-end flow: TCP server → gRPC client → backend
 
-use std::net::SocketAddr;
-use std::time::Duration;
+mod common;
+
+use common::{cleanup_agent, send_check, send_raw_request, start_agent, start_mock_backend};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
-use tokio::time::sleep;
 
-// Helper function to connect to agent and send request
-async fn send_agent_request(
-    addr: SocketAddr,
-    request: &str,
-) -> Result<String, Box<dyn std::error::Error>> {
-    let mut stream = TcpStream::connect(addr).await?;
-
-    // Send request
-    stream.write_all(request.as_bytes()).await?;
-    stream.flush().await?;
-
-    // Read response
-    let mut reader = BufReader::new(stream);
-    let mut response = String::new();
-    reader.read_line(&mut response).await?;
-
-    Ok(response)
-}
-
-// T052: Test basic connectivity to agent
+// Test basic connectivity to agent
 #[tokio::test]
-#[ignore] // Requires mock backend running
 async fn test_agent_connectivity() {
-    let agent_addr: SocketAddr = "127.0.0.1:5555".parse().unwrap();
-
-    // Wait for agent to start
-    sleep(Duration::from_secs(2)).await;
+    let (_container, _backend_port) = start_mock_backend("SERVING").await;
+    let (handle, agent_addr) = start_agent().await;
 
     let result = TcpStream::connect(agent_addr).await;
     assert!(result.is_ok(), "Should connect to agent TCP server");
+
+    cleanup_agent(handle);
 }
 
-// T053: Test health check with healthy backend
+// Test health check with healthy backend
 #[tokio::test]
-#[ignore] // Requires mock backend running
 async fn test_health_check_healthy_backend() {
-    let agent_addr: SocketAddr = "127.0.0.1:5555".parse().unwrap();
+    let (_container, backend_port) = start_mock_backend("SERVING").await;
+    let (handle, agent_addr) = start_agent().await;
 
-    // Wait for services to start
-    sleep(Duration::from_secs(2)).await;
+    let response = send_check(agent_addr, "127.0.0.1", backend_port).await;
+    assert_eq!(response, "up", "Healthy backend should return 'up'");
 
-    let request = "localhost 50051 no-ssl localhost\n";
-    let response = send_agent_request(agent_addr, request)
-        .await
-        .expect("Should receive response");
-
-    assert_eq!(response.trim(), "up", "Healthy backend should return 'up'");
+    cleanup_agent(handle);
 }
 
-// T054: Test health check with SSL flag
+// Test health check with SSL flag (non-existent SSL backend)
 #[tokio::test]
-#[ignore] // Requires mock backend with TLS running
 async fn test_health_check_with_ssl() {
-    let agent_addr: SocketAddr = "127.0.0.1:5555".parse().unwrap();
+    let (handle, agent_addr) = start_agent().await;
 
-    sleep(Duration::from_secs(2)).await;
-
-    let request = "localhost 50052 ssl localhost\n";
-    let response = send_agent_request(agent_addr, request)
-        .await
-        .expect("Should receive response");
-
-    // Should fail to connect to non-existent SSL backend
+    let response = send_raw_request(agent_addr, "127.0.0.1 50052 ssl 127.0.0.1\n").await;
     assert_eq!(
-        response.trim(),
-        "down",
-        "Non-existent backend should return 'down'"
+        response, "down",
+        "Non-existent SSL backend should return 'down'"
     );
+
+    cleanup_agent(handle);
 }
 
-// T055: Test protocol violation handling
+// Test protocol violation handling
 #[tokio::test]
-#[ignore] // Requires agent running
 async fn test_protocol_violation() {
-    let agent_addr: SocketAddr = "127.0.0.1:5555".parse().unwrap();
+    let (handle, agent_addr) = start_agent().await;
 
-    sleep(Duration::from_secs(2)).await;
+    let response = send_raw_request(agent_addr, "invalid request\n").await;
+    assert_eq!(response, "down", "Protocol violation should return 'down'");
 
-    // Send invalid request (wrong number of fields)
-    let request = "invalid request\n";
-    let response = send_agent_request(agent_addr, request)
-        .await
-        .expect("Should receive response");
-
-    assert_eq!(
-        response.trim(),
-        "down",
-        "Protocol violation should return 'down'"
-    );
+    cleanup_agent(handle);
 }
 
-// T056: Test persistent connection (multiple requests)
+// Test persistent connection (multiple requests on same TCP stream)
 #[tokio::test]
-#[ignore] // Requires mock backend running
 async fn test_persistent_connection() {
-    let agent_addr: SocketAddr = "127.0.0.1:5555".parse().unwrap();
-
-    sleep(Duration::from_secs(2)).await;
+    let (_container, backend_port) = start_mock_backend("SERVING").await;
+    let (handle, agent_addr) = start_agent().await;
 
     let stream = TcpStream::connect(agent_addr)
         .await
@@ -112,9 +68,8 @@ async fn test_persistent_connection() {
 
     let mut reader = BufReader::new(stream);
 
-    // Send multiple requests on same connection
-    for _ in 0..3 {
-        let request = "localhost 50051 no-ssl localhost\n";
+    for i in 0..3 {
+        let request = format!("127.0.0.1 {} no-ssl 127.0.0.1\n", backend_port);
         reader
             .get_mut()
             .write_all(request.as_bytes())
@@ -128,28 +83,25 @@ async fn test_persistent_connection() {
             .await
             .expect("Should read response");
 
-        assert_eq!(response.trim(), "up", "Should receive 'up' response");
+        assert_eq!(
+            response.trim(),
+            "up",
+            "Request {} should receive 'up' response",
+            i + 1
+        );
         response.clear();
     }
+
+    cleanup_agent(handle);
 }
 
-// T056: Test unreachable backend
+// Test unreachable backend
 #[tokio::test]
-#[ignore] // Requires agent running
 async fn test_unreachable_backend() {
-    let agent_addr: SocketAddr = "127.0.0.1:5555".parse().unwrap();
+    let (handle, agent_addr) = start_agent().await;
 
-    sleep(Duration::from_secs(2)).await;
+    let response = send_check(agent_addr, "nonexistent.example.com", 9999).await;
+    assert_eq!(response, "down", "Unreachable backend should return 'down'");
 
-    // Try to check a backend that doesn't exist
-    let request = "nonexistent.example.com 9999 no-ssl nonexistent.example.com\n";
-    let response = send_agent_request(agent_addr, request)
-        .await
-        .expect("Should receive response");
-
-    assert_eq!(
-        response.trim(),
-        "down",
-        "Unreachable backend should return 'down'"
-    );
+    cleanup_agent(handle);
 }
