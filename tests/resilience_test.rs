@@ -57,10 +57,7 @@ async fn test_backend_disconnect() {
     assert_eq!(response, "up", "Backend should initially be up");
 
     // Stop the backend container (simulates crash/disconnect)
-    container
-        .stop()
-        .await
-        .expect("Failed to stop mock backend");
+    container.stop().await.expect("Failed to stop mock backend");
     sleep(Duration::from_millis(500)).await;
 
     // Agent should now report the backend as down
@@ -84,10 +81,7 @@ async fn test_backend_recovery() {
     assert_eq!(response, "up", "Backend should initially be up");
 
     // Stop the backend
-    container
-        .stop()
-        .await
-        .expect("Failed to stop mock backend");
+    container.stop().await.expect("Failed to stop mock backend");
     sleep(Duration::from_millis(500)).await;
 
     // Verify backend is down
@@ -110,8 +104,7 @@ async fn test_backend_recovery() {
     wait_for_port("127.0.0.1", new_port, 20).await;
 
     // Agent should connect to the new port and report "up"
-    let response =
-        send_check_with_retry(agent_addr, "127.0.0.1", new_port, "up", 20).await;
+    let response = send_check_with_retry(agent_addr, "127.0.0.1", new_port, "up", 20).await;
     assert_eq!(
         response, "up",
         "Agent should report 'up' after backend recovery"
@@ -134,10 +127,7 @@ async fn test_cached_connection_invalidated_on_disconnect() {
     assert_eq!(response, "up", "Second check (cached channel) should be up");
 
     // Stop backend — cached channel should become invalid
-    container
-        .stop()
-        .await
-        .expect("Failed to stop mock backend");
+    container.stop().await.expect("Failed to stop mock backend");
     sleep(Duration::from_millis(500)).await;
 
     // Agent must NOT return stale "up" from cached channel
@@ -192,10 +182,7 @@ async fn test_backend_restart_with_same_status() {
     assert_eq!(response, "up", "Backend should initially be up");
 
     // Stop and restart with same status
-    container
-        .stop()
-        .await
-        .expect("Failed to stop mock backend");
+    container.stop().await.expect("Failed to stop mock backend");
     container
         .start()
         .await
@@ -211,8 +198,7 @@ async fn test_backend_restart_with_same_status() {
     wait_for_port("127.0.0.1", new_port, 20).await;
 
     // Agent should connect to the new port and report "up"
-    let response =
-        send_check_with_retry(agent_addr, "127.0.0.1", new_port, "up", 20).await;
+    let response = send_check_with_retry(agent_addr, "127.0.0.1", new_port, "up", 20).await;
     assert_eq!(
         response, "up",
         "Agent should report 'up' after restart with same status"

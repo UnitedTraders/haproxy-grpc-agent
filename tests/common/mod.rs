@@ -28,10 +28,7 @@ pub fn build_mock_image() {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            panic!(
-                "Failed to build mock-grpc-backend Docker image: {}",
-                stderr
-            );
+            panic!("Failed to build mock-grpc-backend Docker image: {}", stderr);
         }
     });
 }
