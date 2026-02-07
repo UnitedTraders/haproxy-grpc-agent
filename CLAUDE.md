@@ -3,6 +3,7 @@
 Auto-generated from all feature plans. Last updated: 2025-10-28
 
 ## Active Technologies
+- Rust 1.75+ (edition 2024) + estcontainers 0.27 (new), tokio 1.x, tonic 0.14, existing mock-grpc-backend Docker image (002-testcontainers-integration)
 
 - Rust 1.75+ + okio (async runtime), tonic (gRPC client for backend checks), prometheus (metrics), serde (config/logging) (001-core-agent)
 
@@ -22,6 +23,7 @@ cargo test [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECH
 Rust 1.75+: Follow standard conventions
 
 ## Recent Changes
+- 002-testcontainers-integration: Added Rust 1.75+ (edition 2024) + estcontainers 0.27 (new), tokio 1.x, tonic 0.14, existing mock-grpc-backend Docker image
 
 - 001-core-agent: Added Rust 1.75+ + okio (async runtime), tonic (gRPC client for backend checks), prometheus (metrics), serde (config/logging)
 

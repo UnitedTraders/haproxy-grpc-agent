@@ -13,7 +13,7 @@ tonic-prost = "0.14.2"
 prost = "0.14.1"
 
 # Metrics - T004
-prometheus = "0.13"
+prometheus = "0.14"
 
 # Serialization/Config - T005, T007
 serde = { version = "1.0", features = ["derive"] }
@@ -51,5 +51,5 @@ opt-level = "z"
 
 [dev-dependencies]
 # For integration tests
-bollard = "0.16"  # Docker API client
+testcontainers = "0.27"  # Container lifecycle management
 serde_json = "1.0"  # For parsing JSON logs in tests
