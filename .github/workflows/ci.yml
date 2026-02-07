@@ -41,10 +41,10 @@ jobs:
         run: cargo test --lib --bins --verbose
 
       - name: Run integration tests
-        run: cargo test --test integration_test -- --test-threads=1 --verbose
+        run: cargo test --test integration_test -- --test-threads=1
 
       - name: Run resilience tests
-        run: cargo test --test resilience_test -- --test-threads=1 --verbose
+        run: cargo test --test resilience_test -- --test-threads=1
 
   build-and-publish:
     name: Build and Publish Docker Image
