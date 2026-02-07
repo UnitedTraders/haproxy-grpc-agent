@@ -51,7 +51,25 @@ impl GrpcHealthChecker {
     ) -> Result<Channel, anyhow::Error> {
         // Check if channel exists in cache
         if let Some(channel) = self.channel_cache.get(key) {
-            return Ok(channel.clone());
+            let channel_clone = channel.clone();
+            drop(channel); // Release the DashMap lock
+
+            // Try to get the channel ready with a very short timeout
+            let ready_check = tokio::time::timeout(
+                Duration::from_millis(10),
+                async {
+                    let mut grpc = tonic::client::Grpc::new(channel_clone.clone());
+                    grpc.ready().await
+                }
+            );
+
+            if ready_check.await.is_ok() {
+                return Ok(channel_clone);
+            }
+
+            // Channel not ready, remove from cache
+            self.channel_cache.remove(key);
+            metrics::GRPC_CHANNELS_ACTIVE.set(self.channel_cache.len() as f64);
         }
 
         // T061: Create new channel with connect timeout
@@ -220,8 +238,8 @@ pub mod health_client {
         inner: tonic::client::Grpc<T>,
     }
 
-    impl HealthClient<tonic::transport::Channel> {
-        pub fn new(channel: tonic::transport::Channel) -> Self {
+    impl HealthClient<Channel> {
+        pub fn new(channel: Channel) -> Self {
             let inner = tonic::client::Grpc::new(channel);
             Self { inner }
         }
