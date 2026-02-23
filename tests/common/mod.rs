@@ -1,5 +1,4 @@
 // Shared test utilities for integration and resilience tests
-
 use haproxy_grpc_agent::config::AgentConfig;
 use haproxy_grpc_agent::server::AgentServer;
 use std::net::SocketAddr;
@@ -55,7 +54,7 @@ pub async fn start_mock_backend(health_status: &str) -> (ContainerAsync<GenericI
     (container, port)
 }
 
-/// Starts the agent server in-process on a dynamic port.
+/// Starts the agent server in-process on a dynamic port with default config.
 /// Returns the tokio JoinHandle and the bound SocketAddr.
 pub async fn start_agent() -> (tokio::task::JoinHandle<anyhow::Result<()>>, SocketAddr) {
     let config = AgentConfig {
@@ -65,21 +64,7 @@ pub async fn start_agent() -> (tokio::task::JoinHandle<anyhow::Result<()>>, Sock
         metrics_bind_address: "127.0.0.1".to_string(),
         ..AgentConfig::default()
     };
-
-    let listener = TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("Failed to bind agent listener");
-    let addr = listener
-        .local_addr()
-        .expect("Failed to get agent bound address");
-
-    let server = AgentServer::new(config);
-    let handle = tokio::spawn(async move { server.run_with_listener(listener).await });
-
-    // Brief pause to let the accept loop start
-    tokio::time::sleep(Duration::from_millis(50)).await;
-
-    (handle, addr)
+    start_agent_with_config(config).await
 }
 
 /// Sends a health check request to the agent and returns the trimmed response.

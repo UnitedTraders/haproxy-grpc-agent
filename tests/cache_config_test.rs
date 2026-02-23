@@ -3,7 +3,7 @@
 
 mod common;
 
-use common::{cleanup_agent, send_check, start_agent_with_config, start_mock_backend};
+use common::{cleanup_agent, send_check, start_agent, start_agent_with_config, start_mock_backend};
 use haproxy_grpc_agent::config::AgentConfig;
 
 // T009: Test that health checks work with caching disabled
@@ -43,16 +43,7 @@ async fn test_health_check_cache_disabled() {
 async fn test_cache_enabled_default_behavior() {
     let (_container, backend_port) = start_mock_backend("SERVING").await;
 
-    let config = AgentConfig {
-        server_port: 0,
-        server_bind_address: "127.0.0.1".to_string(),
-        metrics_port: 0,
-        metrics_bind_address: "127.0.0.1".to_string(),
-        grpc_channel_cache_enabled: true,
-        ..AgentConfig::default()
-    };
-
-    let (handle, agent_addr) = start_agent_with_config(config).await;
+    let (handle, agent_addr) = start_agent().await;
 
     // Send two consecutive checks — both should succeed (second uses cached channel)
     let response1 = send_check(agent_addr, "127.0.0.1", backend_port).await;

@@ -273,7 +273,10 @@ impl AgentConfig {
             config.grpc_channel_cache_enabled = match cache.to_lowercase().as_str() {
                 "true" => true,
                 "false" => false,
-                _ => anyhow::bail!("Invalid HAPROXY_AGENT_GRPC_CHANNEL_CACHE value: {} (expected 'true' or 'false')", cache),
+                _ => anyhow::bail!(
+                    "Invalid HAPROXY_AGENT_GRPC_CHANNEL_CACHE value: {} (expected 'true' or 'false')",
+                    cache
+                ),
             };
         }
 
