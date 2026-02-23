@@ -44,6 +44,9 @@ pub struct AgentConfig {
     #[serde(default = "default_grpc_rpc_timeout")]
     pub grpc_rpc_timeout_ms: u64,
 
+    #[serde(default = "default_grpc_channel_cache_enabled")]
+    pub grpc_channel_cache_enabled: bool,
+
     #[serde(default = "default_metrics_port")]
     pub metrics_port: u16,
 
@@ -78,6 +81,10 @@ fn default_grpc_rpc_timeout() -> u64 {
     1500
 }
 
+fn default_grpc_channel_cache_enabled() -> bool {
+    true
+}
+
 impl Default for AgentConfig {
     fn default() -> Self {
         AgentConfig {
@@ -85,6 +92,7 @@ impl Default for AgentConfig {
             server_bind_address: default_bind_address(),
             grpc_connect_timeout_ms: default_grpc_connect_timeout(),
             grpc_rpc_timeout_ms: default_grpc_rpc_timeout(),
+            grpc_channel_cache_enabled: default_grpc_channel_cache_enabled(),
             metrics_port: default_metrics_port(),
             metrics_bind_address: default_bind_address(),
             log_level: LogLevel::default(),
@@ -125,6 +133,10 @@ pub struct CliArgs {
     /// gRPC RPC timeout in milliseconds
     #[arg(long)]
     pub grpc_rpc_timeout: Option<u64>,
+
+    /// Enable or disable gRPC channel caching (default: true)
+    #[arg(long, num_args = 0..=1, default_missing_value = "true", action = clap::ArgAction::Set)]
+    pub grpc_channel_cache: Option<bool>,
 
     /// Log level
     #[arg(long, value_enum)]
@@ -257,6 +269,17 @@ impl AgentConfig {
             };
         }
 
+        if let Ok(cache) = std::env::var("HAPROXY_AGENT_GRPC_CHANNEL_CACHE") {
+            config.grpc_channel_cache_enabled = match cache.to_lowercase().as_str() {
+                "true" => true,
+                "false" => false,
+                _ => anyhow::bail!(
+                    "Invalid HAPROXY_AGENT_GRPC_CHANNEL_CACHE value: {} (expected 'true' or 'false')",
+                    cache
+                ),
+            };
+        }
+
         Ok(config)
     }
 
@@ -305,6 +328,10 @@ impl AgentConfig {
             config.log_format = format;
         }
 
+        if let Some(cache) = cli.grpc_channel_cache {
+            config.grpc_channel_cache_enabled = cache;
+        }
+
         config
     }
 }
@@ -323,6 +350,7 @@ mod tests {
             grpc_rpc_timeout_ms: 1500,
             metrics_port: 9090,
             metrics_bind_address: "0.0.0.0".to_string(),
+            grpc_channel_cache_enabled: true,
             log_level: LogLevel::Info,
             log_format: LogFormat::Json,
         };
@@ -338,6 +366,7 @@ mod tests {
             server_bind_address: "127.0.0.1".to_string(),
             grpc_connect_timeout_ms: 500,
             grpc_rpc_timeout_ms: 1000,
+            grpc_channel_cache_enabled: true,
             metrics_port: 9091,
             metrics_bind_address: "127.0.0.1".to_string(),
             log_level: LogLevel::Debug,
@@ -356,6 +385,7 @@ mod tests {
             server_bind_address: "0.0.0.0".to_string(),
             grpc_connect_timeout_ms: 1000,
             grpc_rpc_timeout_ms: 1500,
+            grpc_channel_cache_enabled: true,
             metrics_port: 9090, // Same as server_port!
             metrics_bind_address: "0.0.0.0".to_string(),
             log_level: LogLevel::Info,
@@ -375,6 +405,7 @@ mod tests {
             server_bind_address: "0.0.0.0".to_string(),
             grpc_connect_timeout_ms: 1000,
             grpc_rpc_timeout_ms: 1500,
+            grpc_channel_cache_enabled: true,
             metrics_port: 9090,
             metrics_bind_address: "0.0.0.0".to_string(),
             log_level: LogLevel::Info,
@@ -394,6 +425,7 @@ mod tests {
             server_bind_address: "0.0.0.0".to_string(),
             grpc_connect_timeout_ms: 1000,
             grpc_rpc_timeout_ms: 1500,
+            grpc_channel_cache_enabled: true,
             metrics_port: 0,
             metrics_bind_address: "0.0.0.0".to_string(),
             log_level: LogLevel::Info,
@@ -414,6 +446,7 @@ mod tests {
             server_bind_address: "0.0.0.0".to_string(),
             grpc_connect_timeout_ms: 0, // Invalid!
             grpc_rpc_timeout_ms: 1500,
+            grpc_channel_cache_enabled: true,
             metrics_port: 9090,
             metrics_bind_address: "0.0.0.0".to_string(),
             log_level: LogLevel::Info,
@@ -433,6 +466,7 @@ mod tests {
             server_bind_address: "0.0.0.0".to_string(),
             grpc_connect_timeout_ms: 1000,
             grpc_rpc_timeout_ms: 0, // Invalid!
+            grpc_channel_cache_enabled: true,
             metrics_port: 9090,
             metrics_bind_address: "0.0.0.0".to_string(),
             log_level: LogLevel::Info,
@@ -455,5 +489,14 @@ mod tests {
         assert_eq!(config.grpc_rpc_timeout_ms, 1500);
         assert_eq!(config.metrics_port, 9090);
         assert_eq!(config.metrics_bind_address, "0.0.0.0");
+    }
+
+    #[test]
+    fn test_config_default_grpc_channel_cache_enabled() {
+        let config = AgentConfig::default();
+        assert!(
+            config.grpc_channel_cache_enabled,
+            "grpc_channel_cache_enabled should default to true"
+        );
     }
 }
