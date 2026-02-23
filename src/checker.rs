@@ -49,24 +49,27 @@ impl GrpcHealthChecker {
         key: &BackendChannelKey,
         proxy_host: &str,
     ) -> Result<Channel, anyhow::Error> {
-        // Check if channel exists in cache
-        if let Some(channel) = self.channel_cache.get(key) {
-            let channel_clone = channel.clone();
-            drop(channel); // Release the DashMap lock
+        // Only use cache when channel caching is enabled
+        if self.config.grpc_channel_cache_enabled {
+            // Check if channel exists in cache
+            if let Some(channel) = self.channel_cache.get(key) {
+                let channel_clone = channel.clone();
+                drop(channel); // Release the DashMap lock
 
-            // Try to get the channel ready with a very short timeout
-            let ready_check = tokio::time::timeout(Duration::from_millis(10), async {
-                let mut grpc = tonic::client::Grpc::new(channel_clone.clone());
-                grpc.ready().await
-            });
+                // Try to get the channel ready with a very short timeout
+                let ready_check = tokio::time::timeout(Duration::from_millis(10), async {
+                    let mut grpc = tonic::client::Grpc::new(channel_clone.clone());
+                    grpc.ready().await
+                });
 
-            if ready_check.await.is_ok() {
-                return Ok(channel_clone);
+                if ready_check.await.is_ok() {
+                    return Ok(channel_clone);
+                }
+
+                // Channel not ready, remove from cache
+                self.channel_cache.remove(key);
+                metrics::GRPC_CHANNELS_ACTIVE.set(self.channel_cache.len() as f64);
             }
-
-            // Channel not ready, remove from cache
-            self.channel_cache.remove(key);
-            metrics::GRPC_CHANNELS_ACTIVE.set(self.channel_cache.len() as f64);
         }
 
         // T061: Create new channel with connect timeout
@@ -110,11 +113,12 @@ impl GrpcHealthChecker {
             .await
             .map_err(|e| anyhow::anyhow!("Connection failed to {}: {}", endpoint, e))?;
 
-        // Cache the channel
-        self.channel_cache.insert(key.clone(), channel.clone());
-
-        // T127: Update GRPC_CHANNELS_ACTIVE gauge
-        metrics::GRPC_CHANNELS_ACTIVE.set(self.channel_cache.len() as f64);
+        // Only cache channel and update metric when caching is enabled
+        if self.config.grpc_channel_cache_enabled {
+            self.channel_cache.insert(key.clone(), channel.clone());
+            // T127: Update GRPC_CHANNELS_ACTIVE gauge
+            metrics::GRPC_CHANNELS_ACTIVE.set(self.channel_cache.len() as f64);
+        }
 
         Ok(channel)
     }

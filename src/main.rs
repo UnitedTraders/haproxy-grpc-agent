@@ -56,6 +56,7 @@ async fn main() -> Result<()> {
         metrics_port = config.metrics_port,
         grpc_connect_timeout_ms = config.grpc_connect_timeout_ms,
         grpc_rpc_timeout_ms = config.grpc_rpc_timeout_ms,
+        grpc_channel_cache_enabled = config.grpc_channel_cache_enabled,
         log_level = ?config.log_level,
         log_format = ?config.log_format,
         "HAProxy gRPC Agent starting"

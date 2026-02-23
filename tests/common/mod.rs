@@ -118,6 +118,27 @@ pub async fn send_raw_request(agent_addr: SocketAddr, request: &str) -> String {
     result.expect("Agent request timed out after 5 seconds")
 }
 
+/// Starts the agent server in-process with a custom config on a dynamic port.
+/// Returns the tokio JoinHandle and the bound SocketAddr.
+pub async fn start_agent_with_config(
+    config: AgentConfig,
+) -> (tokio::task::JoinHandle<anyhow::Result<()>>, SocketAddr) {
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("Failed to bind agent listener");
+    let addr = listener
+        .local_addr()
+        .expect("Failed to get agent bound address");
+
+    let server = AgentServer::new(config);
+    let handle = tokio::spawn(async move { server.run_with_listener(listener).await });
+
+    // Brief pause to let the accept loop start
+    tokio::time::sleep(Duration::from_millis(50)).await;
+
+    (handle, addr)
+}
+
 /// Aborts the agent server task.
 pub fn cleanup_agent(handle: tokio::task::JoinHandle<anyhow::Result<()>>) {
     handle.abort();
