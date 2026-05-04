@@ -776,8 +776,10 @@ mod tests {
     // T012: Tests for resolved_level
     #[test]
     fn test_resolved_level_logging_level_set() {
-        let mut logging = LoggingConfig::default();
-        logging.level = Some(LogLevel::Debug);
+        let logging = LoggingConfig {
+            level: Some(LogLevel::Debug),
+            ..Default::default()
+        };
         let top_level = LogLevel::Info;
 
         assert!(matches!(
@@ -796,8 +798,10 @@ mod tests {
 
     #[test]
     fn test_resolved_level_both_set_logging_wins() {
-        let mut logging = LoggingConfig::default();
-        logging.level = Some(LogLevel::Error);
+        let logging = LoggingConfig {
+            level: Some(LogLevel::Error),
+            ..Default::default()
+        };
         let top_level = LogLevel::Trace;
 
         assert!(matches!(
@@ -840,8 +844,10 @@ mod tests {
 
     #[test]
     fn test_env_filter_directive_with_logging_level() {
-        let mut logging = LoggingConfig::default();
-        logging.level = Some(LogLevel::Warn);
+        let logging = LoggingConfig {
+            level: Some(LogLevel::Warn),
+            ..Default::default()
+        };
         let directive = logging.build_env_filter_directive(&LogLevel::Info);
         assert_eq!(directive, "warn");
     }
