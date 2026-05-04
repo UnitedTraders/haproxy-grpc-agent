@@ -46,6 +46,9 @@ jobs:
       - name: Run resilience tests
         run: cargo test --test resilience_test -- --test-threads=1
 
+      - name: Run config logging tests
+        run: cargo test --test config_logging_test -- --include-ignored --test-threads=1
+
   build-and-publish:
     name: Build and Publish Docker Image
     runs-on: ubuntu-latest

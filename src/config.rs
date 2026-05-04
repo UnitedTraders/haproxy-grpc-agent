@@ -4,6 +4,7 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 // T028: LogLevel enum with serde derives
@@ -27,6 +28,93 @@ pub enum LogFormat {
     #[default]
     Json,
     Pretty,
+}
+
+// T002: LogDestination enum for configurable log output target
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, clap::ValueEnum)]
+#[serde(rename_all = "lowercase")]
+#[derive(Default)]
+pub enum LogDestination {
+    #[default]
+    Console,
+    File,
+}
+
+// T003: LoggingConfig struct for the [logging] TOML section
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct LoggingConfig {
+    #[serde(default)]
+    pub destination: LogDestination,
+
+    #[serde(default)]
+    pub level: Option<LogLevel>,
+
+    #[serde(default)]
+    pub format: Option<LogFormat>,
+
+    #[serde(default)]
+    pub file_path: Option<String>,
+
+    /// Log file rotation strategy: "never", "daily", "hourly"
+    #[serde(default)]
+    pub file_rotation: Option<LogRotation>,
+
+    /// Maximum number of rotated log files to keep
+    #[serde(default)]
+    pub file_max_files: Option<usize>,
+
+    #[serde(default)]
+    pub packages: HashMap<String, LogLevel>,
+}
+
+// Log file rotation strategy
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, clap::ValueEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum LogRotation {
+    Never,
+    Daily,
+    Hourly,
+}
+
+impl LogLevel {
+    /// Returns the string representation of the log level for tracing directives
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            LogLevel::Trace => "trace",
+            LogLevel::Debug => "debug",
+            LogLevel::Info => "info",
+            LogLevel::Warn => "warn",
+            LogLevel::Error => "error",
+        }
+    }
+}
+
+impl LoggingConfig {
+    /// Returns the effective log level, preferring [logging].level over top-level log_level
+    pub fn resolved_level(&self, top_level: &LogLevel) -> LogLevel {
+        self.level.unwrap_or(*top_level)
+    }
+
+    /// Returns the effective log format, preferring [logging].format over top-level log_format
+    pub fn resolved_format(&self, top_level: &LogFormat) -> LogFormat {
+        self.format.unwrap_or(*top_level)
+    }
+
+    /// Builds an EnvFilter directive string from the resolved level and per-package overrides.
+    /// Example output: "info,haproxy_grpc_agent::checker=debug,tonic=warn"
+    pub fn build_env_filter_directive(&self, top_level: &LogLevel) -> String {
+        let base_level = self.resolved_level(top_level);
+        let mut directive = base_level.as_str().to_string();
+
+        for (package, level) in &self.packages {
+            directive.push(',');
+            directive.push_str(package);
+            directive.push('=');
+            directive.push_str(level.as_str());
+        }
+
+        directive
+    }
 }
 
 // T026: AgentConfig struct with all fields from data-model.md
@@ -58,6 +146,9 @@ pub struct AgentConfig {
 
     #[serde(default)]
     pub log_format: LogFormat,
+
+    #[serde(default)]
+    pub logging: LoggingConfig,
 }
 
 // T027: Default functions for AgentConfig
@@ -97,6 +188,7 @@ impl Default for AgentConfig {
             metrics_bind_address: default_bind_address(),
             log_level: LogLevel::default(),
             log_format: LogFormat::default(),
+            logging: LoggingConfig::default(),
         }
     }
 }
@@ -145,6 +237,22 @@ pub struct CliArgs {
     /// Log format
     #[arg(long, value_enum)]
     pub log_format: Option<LogFormat>,
+
+    /// Log destination (console or file)
+    #[arg(long, value_enum)]
+    pub log_destination: Option<LogDestination>,
+
+    /// Log file path (required when --log-destination=file)
+    #[arg(long)]
+    pub log_file_path: Option<String>,
+
+    /// Log file rotation strategy (never, daily, hourly)
+    #[arg(long, value_enum)]
+    pub log_file_rotation: Option<LogRotation>,
+
+    /// Maximum number of rotated log files to keep
+    #[arg(long)]
+    pub log_file_max_files: Option<usize>,
 }
 
 impl AgentConfig {
@@ -176,6 +284,33 @@ impl AgentConfig {
 
         if self.grpc_rpc_timeout_ms == 0 {
             anyhow::bail!("grpc_rpc_timeout_ms must be greater than 0");
+        }
+
+        // Validate logging config
+        if matches!(self.logging.destination, LogDestination::File) {
+            match &self.logging.file_path {
+                None => anyhow::bail!(
+                    "logging.file_path is required when logging.destination is \"file\""
+                ),
+                Some(path) if path.is_empty() => anyhow::bail!(
+                    "logging.file_path must not be empty when logging.destination is \"file\""
+                ),
+                _ => {}
+            }
+        }
+
+        if let Some(max_files) = self.logging.file_max_files
+            && max_files == 0
+        {
+            anyhow::bail!("logging.file_max_files must be greater than 0");
+        }
+
+        // Warn if file_max_files is set without rotation
+        if self.logging.file_max_files.is_some() && self.logging.file_rotation.is_none() {
+            eprintln!(
+                "WARNING: logging.file_max_files is set but logging.file_rotation is not. \
+                 file_max_files has no effect without rotation enabled."
+            );
         }
 
         // Validate total timeout is reasonable (should be < 2000ms for HAProxy)
@@ -280,6 +415,36 @@ impl AgentConfig {
             };
         }
 
+        if let Ok(dest) = std::env::var("HAPROXY_AGENT_LOG_DESTINATION") {
+            config.logging.destination = match dest.to_lowercase().as_str() {
+                "console" => LogDestination::Console,
+                "file" => LogDestination::File,
+                _ => anyhow::bail!("Invalid HAPROXY_AGENT_LOG_DESTINATION: {} (expected 'console' or 'file')", dest),
+            };
+        }
+
+        if let Ok(path) = std::env::var("HAPROXY_AGENT_LOG_FILE_PATH") {
+            config.logging.file_path = Some(path);
+        }
+
+        if let Ok(rotation) = std::env::var("HAPROXY_AGENT_LOG_FILE_ROTATION") {
+            config.logging.file_rotation = Some(match rotation.to_lowercase().as_str() {
+                "never" => LogRotation::Never,
+                "daily" => LogRotation::Daily,
+                "hourly" => LogRotation::Hourly,
+                _ => anyhow::bail!(
+                    "Invalid HAPROXY_AGENT_LOG_FILE_ROTATION: {} (expected 'never', 'daily', or 'hourly')",
+                    rotation
+                ),
+            });
+        }
+
+        if let Ok(max_files) = std::env::var("HAPROXY_AGENT_LOG_FILE_MAX_FILES") {
+            config.logging.file_max_files = Some(
+                max_files.parse().context("Invalid HAPROXY_AGENT_LOG_FILE_MAX_FILES")?,
+            );
+        }
+
         Ok(config)
     }
 
@@ -332,6 +497,22 @@ impl AgentConfig {
             config.grpc_channel_cache_enabled = cache;
         }
 
+        if let Some(dest) = cli.log_destination {
+            config.logging.destination = dest;
+        }
+
+        if let Some(path) = cli.log_file_path {
+            config.logging.file_path = Some(path);
+        }
+
+        if let Some(rotation) = cli.log_file_rotation {
+            config.logging.file_rotation = Some(rotation);
+        }
+
+        if let Some(max_files) = cli.log_file_max_files {
+            config.logging.file_max_files = Some(max_files);
+        }
+
         config
     }
 }
@@ -353,6 +534,7 @@ mod tests {
             grpc_channel_cache_enabled: true,
             log_level: LogLevel::Info,
             log_format: LogFormat::Json,
+            logging: LoggingConfig::default(),
         };
 
         let result = config.validate();
@@ -371,6 +553,7 @@ mod tests {
             metrics_bind_address: "127.0.0.1".to_string(),
             log_level: LogLevel::Debug,
             log_format: LogFormat::Pretty,
+            logging: LoggingConfig::default(),
         };
 
         let result = config.validate();
@@ -390,6 +573,7 @@ mod tests {
             metrics_bind_address: "0.0.0.0".to_string(),
             log_level: LogLevel::Info,
             log_format: LogFormat::Json,
+            logging: LoggingConfig::default(),
         };
 
         let result = config.validate();
@@ -410,6 +594,7 @@ mod tests {
             metrics_bind_address: "0.0.0.0".to_string(),
             log_level: LogLevel::Info,
             log_format: LogFormat::Json,
+            logging: LoggingConfig::default(),
         };
 
         let result = config.validate();
@@ -430,6 +615,7 @@ mod tests {
             metrics_bind_address: "0.0.0.0".to_string(),
             log_level: LogLevel::Info,
             log_format: LogFormat::Json,
+            logging: LoggingConfig::default(),
         };
 
         let result = config.validate();
@@ -451,6 +637,7 @@ mod tests {
             metrics_bind_address: "0.0.0.0".to_string(),
             log_level: LogLevel::Info,
             log_format: LogFormat::Json,
+            logging: LoggingConfig::default(),
         };
 
         let result = config.validate();
@@ -471,6 +658,7 @@ mod tests {
             metrics_bind_address: "0.0.0.0".to_string(),
             log_level: LogLevel::Info,
             log_format: LogFormat::Json,
+            logging: LoggingConfig::default(),
         };
 
         let result = config.validate();
@@ -498,5 +686,154 @@ mod tests {
             config.grpc_channel_cache_enabled,
             "grpc_channel_cache_enabled should default to true"
         );
+    }
+
+    // T008: LoggingConfig default and validation tests
+    #[test]
+    fn test_logging_config_defaults() {
+        let logging = LoggingConfig::default();
+        assert!(matches!(logging.destination, LogDestination::Console));
+        assert!(logging.level.is_none());
+        assert!(logging.format.is_none());
+        assert!(logging.file_path.is_none());
+        assert!(logging.file_rotation.is_none());
+        assert!(logging.file_max_files.is_none());
+        assert!(logging.packages.is_empty());
+    }
+
+    #[test]
+    fn test_logging_config_in_agent_config_default() {
+        let config = AgentConfig::default();
+        assert!(matches!(config.logging.destination, LogDestination::Console));
+        assert!(config.logging.packages.is_empty());
+    }
+
+    #[test]
+    fn test_logging_validation_file_without_path() {
+        let mut config = AgentConfig::default();
+        config.logging.destination = LogDestination::File;
+        config.logging.file_path = None;
+
+        let result = config.validate();
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("file_path"));
+    }
+
+    #[test]
+    fn test_logging_validation_file_with_empty_path() {
+        let mut config = AgentConfig::default();
+        config.logging.destination = LogDestination::File;
+        config.logging.file_path = Some("".to_string());
+
+        let result = config.validate();
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("file_path"));
+    }
+
+    #[test]
+    fn test_logging_validation_file_with_valid_path() {
+        let mut config = AgentConfig::default();
+        config.logging.destination = LogDestination::File;
+        config.logging.file_path = Some("/tmp/test.log".to_string());
+
+        let result = config.validate();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_logging_validation_max_size_zero() {
+        let mut config = AgentConfig::default();
+        config.logging.file_max_files = Some(0);
+
+        let result = config.validate();
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("file_max_files"));
+    }
+
+    #[test]
+    fn test_logging_validation_console_ignores_file_settings() {
+        let mut config = AgentConfig::default();
+        config.logging.destination = LogDestination::Console;
+        // These should be ignored for console destination
+        config.logging.file_rotation = Some(LogRotation::Daily);
+        config.logging.file_max_files = Some(5);
+
+        let result = config.validate();
+        assert!(result.is_ok());
+    }
+
+    // T012: Tests for resolved_level
+    #[test]
+    fn test_resolved_level_logging_level_set() {
+        let mut logging = LoggingConfig::default();
+        logging.level = Some(LogLevel::Debug);
+        let top_level = LogLevel::Info;
+
+        assert!(matches!(logging.resolved_level(&top_level), LogLevel::Debug));
+    }
+
+    #[test]
+    fn test_resolved_level_logging_level_unset_falls_back() {
+        let logging = LoggingConfig::default();
+        let top_level = LogLevel::Warn;
+
+        assert!(matches!(logging.resolved_level(&top_level), LogLevel::Warn));
+    }
+
+    #[test]
+    fn test_resolved_level_both_set_logging_wins() {
+        let mut logging = LoggingConfig::default();
+        logging.level = Some(LogLevel::Error);
+        let top_level = LogLevel::Trace;
+
+        assert!(matches!(
+            logging.resolved_level(&top_level),
+            LogLevel::Error
+        ));
+    }
+
+    // T013: Tests for build_env_filter_directive
+    #[test]
+    fn test_env_filter_directive_no_overrides() {
+        let logging = LoggingConfig::default();
+        let directive = logging.build_env_filter_directive(&LogLevel::Info);
+        assert_eq!(directive, "info");
+    }
+
+    #[test]
+    fn test_env_filter_directive_single_override() {
+        let mut logging = LoggingConfig::default();
+        logging
+            .packages
+            .insert("haproxy_grpc_agent::checker".to_string(), LogLevel::Debug);
+        let directive = logging.build_env_filter_directive(&LogLevel::Info);
+        assert!(directive.starts_with("info,"));
+        assert!(directive.contains("haproxy_grpc_agent::checker=debug"));
+    }
+
+    #[test]
+    fn test_env_filter_directive_multiple_overrides() {
+        let mut logging = LoggingConfig::default();
+        logging
+            .packages
+            .insert("haproxy_grpc_agent::checker".to_string(), LogLevel::Debug);
+        logging
+            .packages
+            .insert("tonic".to_string(), LogLevel::Warn);
+        let directive = logging.build_env_filter_directive(&LogLevel::Info);
+        assert!(directive.starts_with("info,"));
+        assert!(directive.contains("haproxy_grpc_agent::checker=debug"));
+        assert!(directive.contains("tonic=warn"));
+    }
+
+    #[test]
+    fn test_env_filter_directive_with_logging_level() {
+        let mut logging = LoggingConfig::default();
+        logging.level = Some(LogLevel::Warn);
+        let directive = logging.build_env_filter_directive(&LogLevel::Info);
+        assert_eq!(directive, "warn");
     }
 }
