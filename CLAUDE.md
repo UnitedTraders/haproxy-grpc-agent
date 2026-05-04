@@ -25,6 +25,7 @@ cargo test [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECH
 Rust 1.75+: Follow standard conventions
 
 ## Recent Changes
+- 004-configurable-logging: Added tracing-appender (file output, rotation), extended config.rs with LoggingConfig/LogDestination, per-package log level overrides via [logging.packages] TOML table
 - 003-channel-cache-config: Added Rust 1.75+ (edition 2024) + okio 1.x, tonic 0.14.2, dashmap 6.1.0, clap 4.5, serde 1.0, toml 0.9.8, prometheus 0.14
 - 002-testcontainers-integration: Added Rust 1.75+ (edition 2024) + estcontainers 0.27 (new), tokio 1.x, tonic 0.14, existing mock-grpc-backend Docker image
 
@@ -36,4 +37,5 @@ Rust 1.75+: Follow standard conventions
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan
+at specs/004-configurable-logging/plan.md
 <!-- SPECKIT END -->

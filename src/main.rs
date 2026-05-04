@@ -59,6 +59,9 @@ async fn main() -> Result<()> {
         grpc_channel_cache_enabled = config.grpc_channel_cache_enabled,
         log_level = ?config.log_level,
         log_format = ?config.log_format,
+        log_destination = ?config.logging.destination,
+        log_file_path = ?config.logging.file_path,
+        log_package_overrides = config.logging.packages.len(),
         "HAProxy gRPC Agent starting"
     );
 

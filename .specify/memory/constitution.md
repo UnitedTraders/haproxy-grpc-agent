@@ -1,8 +1,12 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version Change: [No previous version] → 1.0.0
-Created: 2025-10-28
+Version Change: 1.0.0 → 1.0.1
+Amended: 2026-05-04
+
+Changes:
+  - PR Requirements: Added step 6 — run `cargo fmt --all` after code changes and tests pass
+  - Testing Gates: Added formatting check as merge blocker
 
 Principles Defined:
   1. Agent Pattern - Lightweight, minimal dependencies, clear HAProxy integration
@@ -129,6 +133,7 @@ Every PR MUST:
 3. Update documentation (README, config examples) if adding/changing behavior
 4. Include observability updates (new log fields, metrics) for significant features
 5. Pass code review focused on: protocol compliance, error handling, observability, simplicity
+6. Run `cargo fmt --all` after all code changes and tests pass, before committing
 
 ### Review Criteria
 
@@ -146,6 +151,7 @@ Merge MUST be blocked if:
 - Observability outputs are missing or unclear
 - Protocol compliance is unverified
 - Complexity is unjustified (see Complexity Tracking in plan.md)
+- Code formatting check fails (`cargo fmt --all -- --check`)
 
 ## Governance
 
@@ -178,4 +184,4 @@ All pull requests MUST verify constitution compliance. Reviewers MUST challenge:
 
 Use `.specify/memory/constitution.md` for governance rules and the agent-specific guidance file (if present) for runtime development tips.
 
-**Version**: 1.0.0 | **Ratified**: 2025-10-28 | **Last Amended**: 2025-10-28
+**Version**: 1.0.1 | **Ratified**: 2025-10-28 | **Last Amended**: 2026-05-04
