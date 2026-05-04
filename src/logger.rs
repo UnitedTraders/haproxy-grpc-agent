@@ -45,10 +45,14 @@ fn init_console(env_filter: EnvFilter, format: LogFormat) {
                 .json()
                 .with_current_span(false)
                 .with_span_list(true)
+                .with_writer(std::io::stderr)
                 .init();
         }
         LogFormat::Pretty => {
-            tracing_subscriber::fmt().with_env_filter(env_filter).init();
+            tracing_subscriber::fmt()
+                .with_env_filter(env_filter)
+                .with_writer(std::io::stderr)
+                .init();
         }
     }
 }
