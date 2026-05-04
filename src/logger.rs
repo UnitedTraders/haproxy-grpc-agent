@@ -75,11 +75,9 @@ fn init_file(
         .and_then(|n| n.to_str())
         .ok_or_else(|| anyhow::anyhow!("Invalid log file path: {}", file_path))?;
 
-    let dir = path
-        .parent()
-        .ok_or_else(|| {
-            anyhow::anyhow!("Invalid log file path (no parent directory): {}", file_path)
-        })?;
+    let dir = path.parent().ok_or_else(|| {
+        anyhow::anyhow!("Invalid log file path (no parent directory): {}", file_path)
+    })?;
 
     // Determine rotation strategy
     let tracing_rotation = match rotation {

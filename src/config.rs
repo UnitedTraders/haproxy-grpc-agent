@@ -419,7 +419,10 @@ impl AgentConfig {
             config.logging.destination = match dest.to_lowercase().as_str() {
                 "console" => LogDestination::Console,
                 "file" => LogDestination::File,
-                _ => anyhow::bail!("Invalid HAPROXY_AGENT_LOG_DESTINATION: {} (expected 'console' or 'file')", dest),
+                _ => anyhow::bail!(
+                    "Invalid HAPROXY_AGENT_LOG_DESTINATION: {} (expected 'console' or 'file')",
+                    dest
+                ),
             };
         }
 
@@ -441,7 +444,9 @@ impl AgentConfig {
 
         if let Ok(max_files) = std::env::var("HAPROXY_AGENT_LOG_FILE_MAX_FILES") {
             config.logging.file_max_files = Some(
-                max_files.parse().context("Invalid HAPROXY_AGENT_LOG_FILE_MAX_FILES")?,
+                max_files
+                    .parse()
+                    .context("Invalid HAPROXY_AGENT_LOG_FILE_MAX_FILES")?,
             );
         }
 
@@ -704,7 +709,10 @@ mod tests {
     #[test]
     fn test_logging_config_in_agent_config_default() {
         let config = AgentConfig::default();
-        assert!(matches!(config.logging.destination, LogDestination::Console));
+        assert!(matches!(
+            config.logging.destination,
+            LogDestination::Console
+        ));
         assert!(config.logging.packages.is_empty());
     }
 
@@ -772,7 +780,10 @@ mod tests {
         logging.level = Some(LogLevel::Debug);
         let top_level = LogLevel::Info;
 
-        assert!(matches!(logging.resolved_level(&top_level), LogLevel::Debug));
+        assert!(matches!(
+            logging.resolved_level(&top_level),
+            LogLevel::Debug
+        ));
     }
 
     #[test]
@@ -820,9 +831,7 @@ mod tests {
         logging
             .packages
             .insert("haproxy_grpc_agent::checker".to_string(), LogLevel::Debug);
-        logging
-            .packages
-            .insert("tonic".to_string(), LogLevel::Warn);
+        logging.packages.insert("tonic".to_string(), LogLevel::Warn);
         let directive = logging.build_env_filter_directive(&LogLevel::Info);
         assert!(directive.starts_with("info,"));
         assert!(directive.contains("haproxy_grpc_agent::checker=debug"));

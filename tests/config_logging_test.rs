@@ -92,10 +92,7 @@ file_path = "{}"
 
     // Verify log file contains JSON log lines
     let log_content = std::fs::read_to_string(&log_path).expect("Failed to read log file");
-    assert!(
-        !log_content.is_empty(),
-        "Log file should not be empty"
-    );
+    assert!(!log_content.is_empty(), "Log file should not be empty");
 
     // Check that at least one line is valid JSON with expected fields
     let has_json_log = log_content.lines().any(|line| {
@@ -105,7 +102,10 @@ file_path = "{}"
             .unwrap_or(false)
     });
 
-    assert!(has_json_log, "Log file should contain valid JSON log entries");
+    assert!(
+        has_json_log,
+        "Log file should contain valid JSON log entries"
+    );
 
     // Verify stderr is empty (logs should go to file, not console)
     let output = child.wait_with_output().unwrap_or_else(|_| {
