@@ -22,7 +22,9 @@ This agent solves this by using proper gRPC health check protocol instead of HTT
 - ✅ gRPC health checks via `grpc.health.v1.Health/Check`
 - ✅ TLS/SSL support for secure backends
 - ✅ Connection pooling and caching
-- ✅ Structured JSON logging
+- ✅ Structured JSON logging (console or file)
+- ✅ Per-package log level overrides
+- ✅ Log file rotation (daily, hourly)
 - ✅ Prometheus metrics export
 - ✅ Configurable timeouts
 - ✅ Docker support
@@ -45,7 +47,7 @@ docker run -d \
   --name haproxy-grpc-agent \
   -p 5555:5555 \
   -p 9090:9090 \
-  -e AGENT_LOG_LEVEL=info \
+  -e HAPROXY_AGENT_LOG_LEVEL=info \
   ghcr.io/unitedtraders/haproxy-grpc-agent:latest
 ```
 
@@ -87,13 +89,19 @@ The agent can be configured via environment variables, CLI flags, or a TOML conf
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AGENT_SERVER_BIND_ADDRESS` | `0.0.0.0` | Server bind address |
-| `AGENT_SERVER_PORT` | `5555` | Agent TCP server port |
-| `AGENT_METRICS_PORT` | `9090` | Prometheus metrics port |
-| `AGENT_LOG_LEVEL` | `info` | Log level (trace, debug, info, warn, error) |
-| `AGENT_LOG_FORMAT` | `json` | Log format (json, pretty) |
-| `AGENT_GRPC_CONNECT_TIMEOUT_MS` | `1000` | gRPC connection timeout (ms) |
-| `AGENT_GRPC_RPC_TIMEOUT_MS` | `1500` | gRPC RPC timeout (ms) |
+| `HAPROXY_AGENT_SERVER_PORT` | `5555` | Agent TCP server port |
+| `HAPROXY_AGENT_SERVER_BIND` | `0.0.0.0` | Server bind address |
+| `HAPROXY_AGENT_METRICS_PORT` | `9090` | Prometheus metrics port |
+| `HAPROXY_AGENT_METRICS_BIND` | `0.0.0.0` | Metrics server bind address |
+| `HAPROXY_AGENT_LOG_LEVEL` | `info` | Log level (trace, debug, info, warn, error) |
+| `HAPROXY_AGENT_LOG_FORMAT` | `json` | Log format (json, pretty) |
+| `HAPROXY_AGENT_LOG_DESTINATION` | `console` | Log destination (console, file) |
+| `HAPROXY_AGENT_LOG_FILE_PATH` | — | Log file path (required when destination=file) |
+| `HAPROXY_AGENT_LOG_FILE_ROTATION` | — | File rotation strategy (never, daily, hourly) |
+| `HAPROXY_AGENT_LOG_FILE_MAX_FILES` | — | Max rotated log files to keep |
+| `HAPROXY_AGENT_GRPC_CONNECT_TIMEOUT` | `1000` | gRPC connection timeout (ms) |
+| `HAPROXY_AGENT_GRPC_RPC_TIMEOUT` | `1500` | gRPC RPC timeout (ms) |
+| `HAPROXY_AGENT_GRPC_CHANNEL_CACHE` | `true` | Enable gRPC channel caching (true, false) |
 
 ### CLI Flags
 
@@ -101,13 +109,20 @@ The agent can be configured via environment variables, CLI flags, or a TOML conf
 haproxy-grpc-agent --help
 
 Options:
-  --server-port <PORT>          Agent server port [default: 5555]
-  --metrics-port <PORT>         Metrics server port [default: 9090]
-  --log-level <LEVEL>           Log level [default: info]
-  --log-format <FORMAT>         Log format [default: json]
-  --grpc-connect-timeout <MS>   gRPC connect timeout [default: 1000]
-  --grpc-rpc-timeout <MS>       gRPC RPC timeout [default: 1500]
-  --config <FILE>               Path to config file
+  -c, --config <FILE>               Path to config file
+  --server-port <PORT>              Agent server port
+  --server-bind <ADDRESS>           Server bind address
+  --metrics-port <PORT>             Metrics server port
+  --metrics-bind <ADDRESS>          Metrics bind address
+  --log-level <LEVEL>               Log level (trace, debug, info, warn, error)
+  --log-format <FORMAT>             Log format (json, pretty)
+  --log-destination <DEST>          Log destination (console, file)
+  --log-file-path <PATH>            Log file path (required when --log-destination=file)
+  --log-file-rotation <STRATEGY>    File rotation (never, daily, hourly)
+  --log-file-max-files <N>          Max rotated log files to keep
+  --grpc-connect-timeout <MS>       gRPC connect timeout
+  --grpc-rpc-timeout <MS>           gRPC RPC timeout
+  --grpc-channel-cache [true|false] Enable gRPC channel caching
 ```
 
 ### TOML Configuration File
@@ -122,6 +137,22 @@ log_level = "info"
 log_format = "json"
 grpc_connect_timeout_ms = 1000
 grpc_rpc_timeout_ms = 1500
+
+[logging]
+destination = "console"       # "console" or "file"
+# level = "debug"             # overrides top-level log_level
+# format = "pretty"           # overrides top-level log_format
+
+# File destination settings (used when destination = "file"):
+# file_path = "/var/log/haproxy-agent/agent.log"
+# file_rotation = "daily"     # "never", "daily", "hourly"
+# file_max_files = 7          # max rotated files to keep
+
+# Per-package log level overrides:
+# [logging.packages]
+# haproxy_grpc_agent = "debug"
+# haproxy_grpc_agent::server = "trace"
+# tonic = "warn"
 ```
 
 Run with config file:
@@ -129,6 +160,37 @@ Run with config file:
 ```bash
 haproxy-grpc-agent --config config.toml
 ```
+
+### Logging Configuration
+
+The agent supports two log destinations: **console** (stderr, default) and **file**.
+
+**Write logs to a file with daily rotation:**
+
+```toml
+[logging]
+destination = "file"
+file_path = "/var/log/haproxy-agent/agent.log"
+file_rotation = "daily"
+file_max_files = 7
+```
+
+**Per-package log level overrides** allow fine-grained control:
+
+```toml
+log_level = "warn"
+
+[logging]
+level = "info"
+
+[logging.packages]
+haproxy_grpc_agent = "debug"
+tonic = "warn"
+```
+
+The `[logging].level` overrides the top-level `log_level`. Individual packages in `[logging.packages]` override both. Setting `RUST_LOG` environment variable overrides everything.
+
+**Configuration precedence:** CLI flags > environment variables > config file `[logging]` section > config file top-level > defaults.
 
 ## Usage
 
@@ -244,10 +306,10 @@ services:
       - "5555:5555"
       - "9090:9090"
     environment:
-      - AGENT_LOG_LEVEL=info
-      - AGENT_LOG_FORMAT=json
-      - AGENT_GRPC_CONNECT_TIMEOUT_MS=1000
-      - AGENT_GRPC_RPC_TIMEOUT_MS=1500
+      - HAPROXY_AGENT_LOG_LEVEL=info
+      - HAPROXY_AGENT_LOG_FORMAT=json
+      - HAPROXY_AGENT_GRPC_CONNECT_TIMEOUT=1000
+      - HAPROXY_AGENT_GRPC_RPC_TIMEOUT=1500
     restart: unless-stopped
 ```
 
@@ -277,7 +339,7 @@ spec:
         - containerPort: 9090
           name: metrics
         env:
-        - name: AGENT_LOG_LEVEL
+        - name: HAPROXY_AGENT_LOG_LEVEL
           value: "info"
         resources:
           requests:
@@ -315,8 +377,8 @@ cargo test --lib --bins
 # Run integration tests (requires Docker)
 cargo test --test integration_test -- --ignored
 
-# Run logging tests
-cargo test --test logging_test -- --ignored
+# Run logging configuration tests
+cargo test --test config_logging_test -- --include-ignored --test-threads=1
 ```
 
 ### Code Quality
