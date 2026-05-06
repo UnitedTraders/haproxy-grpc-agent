@@ -70,7 +70,7 @@ async fn main() -> Result<()> {
     let metrics_server_result = metrics::MetricsServer::new(&config);
     let metrics_handle = match metrics_server_result {
         Ok(metrics_server) => {
-            tracing::info!("Metrics server configured successfully");
+            tracing::debug!("Metrics server configured successfully");
             Some(tokio::spawn(async move {
                 if let Err(e) = metrics_server.run().await {
                     tracing::error!(error = %e, "Metrics server error - continuing without metrics");

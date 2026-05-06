@@ -102,7 +102,7 @@ impl MetricsServer {
             anyhow::anyhow!("Failed to bind metrics server to {}: {}", self.bind_addr, e)
         })?;
 
-        tracing::info!(
+        tracing::debug!(
             address = %self.bind_addr,
             "Metrics server listening"
         );

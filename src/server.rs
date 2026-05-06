@@ -54,7 +54,7 @@ impl AgentServer {
         loop {
             match listener.accept().await {
                 Ok((stream, peer_addr)) => {
-                    tracing::info!(
+                    tracing::debug!(
                         peer = %peer_addr,
                         "HAProxy connection established"
                     );
@@ -74,7 +74,7 @@ impl AgentServer {
                             );
                         }
 
-                        tracing::info!(
+                        tracing::debug!(
                             peer = %peer_addr,
                             "HAProxy connection closed"
                         );
@@ -120,7 +120,7 @@ async fn handle_connection(
         // T074: Integrate protocol::parse_request
         match protocol::parse_request(&line) {
             Ok(request) => {
-                tracing::info!(
+                tracing::debug!(
                     backend = %format!("{}:{}", request.backend_server, request.backend_port),
                     ssl = ?request.ssl_flag,
                     "Processing health check request"
@@ -136,7 +136,7 @@ async fn handle_connection(
                 let duration = start.elapsed();
                 metrics::CHECK_DURATION_SECONDS.observe(duration.as_secs_f64());
 
-                tracing::info!(
+                tracing::debug!(
                     backend = %format!("{}:{}", request.backend_server, request.backend_port),
                     status = ?response.status,
                     "Health check completed"
