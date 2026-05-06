@@ -37,5 +37,5 @@ Rust 1.75+: Follow standard conventions
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan
-at specs/004-configurable-logging/plan.md
+at specs/005-reduce-info-logging/plan.md
 <!-- SPECKIT END -->
