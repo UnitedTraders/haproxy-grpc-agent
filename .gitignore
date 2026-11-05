@@ -44,3 +44,20 @@ coverage/
 # Temporary files
 *.tmp
 *.bak
+
+# SpecKit specific
+.specify/extensions
+.specify/extensions.yml
+.specify/feature.json
+.specify/init-options.json
+.specify/integration.json
+.specify/integrations
+.specify/scripts
+.specify/templates
+.specify/workflow.yml
+.specify/workflows
+.specify/.gitignore
+.claude/skills/speckit*
+
+# Coverage reports
+lcov.info
